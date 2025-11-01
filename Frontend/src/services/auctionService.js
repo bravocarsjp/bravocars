@@ -9,32 +9,32 @@ const auctionService = {
       pageSize: pageSize.toString(),
       ...(status && { status }),
     });
-    
-    const response = await apiClient.get(`/auctions?${queryParams}`);
+
+    const response = await apiClient.get(`/Auctions?${queryParams}`);
     return response.data;
   },
 
   // Get auction by ID
   getAuctionById: async (id) => {
-    const response = await apiClient.get(`/auctions/${id}`);
+    const response = await apiClient.get(`/Auctions/${id}`);
     return response.data;
   },
 
   // Create new auction (Admin only)
   createAuction: async (auctionData) => {
-    const response = await apiClient.post('/auctions', auctionData);
+    const response = await apiClient.post('/Auctions', auctionData);
     return response.data;
   },
 
   // Update auction (Admin only)
   updateAuction: async (id, auctionData) => {
-    const response = await apiClient.put(`/auctions/${id}`, auctionData);
+    const response = await apiClient.put(`/Auctions/${id}`, auctionData);
     return response.data;
   },
 
   // Delete auction (Admin only)
   deleteAuction: async (id) => {
-    const response = await apiClient.delete(`/auctions/${id}`);
+    const response = await apiClient.delete(`/Auctions/${id}`);
     return response.data;
   },
 };
