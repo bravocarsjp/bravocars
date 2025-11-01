@@ -20,6 +20,7 @@ public class BidService : IBidService
     private readonly IEmailService _emailService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<BidService> _logger;
+    private readonly IAuctionHubService? _auctionHubService;
 
     public BidService(
         IBidRepository bidRepository,
@@ -29,7 +30,8 @@ public class BidService : IBidService
         ICacheService cacheService,
         IEmailService emailService,
         IUnitOfWork unitOfWork,
-        ILogger<BidService> logger)
+        ILogger<BidService> logger,
+        IAuctionHubService? auctionHubService = null)
     {
         _bidRepository = bidRepository;
         _auctionRepository = auctionRepository;
@@ -39,6 +41,7 @@ public class BidService : IBidService
         _emailService = emailService;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auctionHubService = auctionHubService;
     }
 
     public async Task<ApiResponse<BidDto>> PlaceBidAsync(string userId, PlaceBidDto placeBidDto)
@@ -149,6 +152,29 @@ public class BidService : IBidService
 
             _logger.LogInformation("Bid placed: {BidId} - User {UserId} bid ${Amount} on auction {AuctionId}",
                 bid.Id, userId, bid.Amount, placeBidDto.AuctionId);
+
+            // Broadcast bid update via SignalR to all connected clients
+            if (_auctionHubService != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _auctionHubService.BroadcastBidPlacedAsync(placeBidDto.AuctionId, new
+                        {
+                            auctionId = placeBidDto.AuctionId,
+                            bidAmount = bid.Amount,
+                            bidderName = bidder != null ? $"{bidder.FirstName} {bidder.LastName?.Substring(0, 1)}***" : "Anonymous",
+                            timestamp = bid.PlacedAt,
+                            totalBids = await _bidRepository.GetBidCountByAuctionIdAsync(placeBidDto.AuctionId)
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error broadcasting bid update via SignalR");
+                    }
+                });
+            }
 
             // Send email notifications (async, don't wait)
             _ = Task.Run(async () =>

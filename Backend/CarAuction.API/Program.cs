@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using CarAuction.API.Hubs;
 using CarAuction.API.Middleware;
 using CarAuction.Application.Interfaces.Repositories;
 using CarAuction.Application.Interfaces.Services;
@@ -14,10 +15,14 @@ using CarAuction.Infrastructure.Services.Bids;
 using CarAuction.Infrastructure.Services.Cache;
 using CarAuction.Infrastructure.Services.Cars;
 using CarAuction.Infrastructure.Services.Email;
+using CarAuction.Infrastructure.Services.SignalR;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -148,6 +153,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Register Services
 builder.Services.AddSingleton<ICacheService, RedisCacheService>();
+builder.Services.AddSingleton<DistributedLockService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -155,6 +161,10 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<IAuctionService, AuctionService>();
 builder.Services.AddScoped<IBidService, BidService>();
+builder.Services.AddScoped<IAuctionHubService>(sp =>
+    new AuctionHubService(
+        sp.GetRequiredService<ILogger<AuctionHubService>>(),
+        sp.GetService<IHubContext<AuctionHub>>()));
 
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();
@@ -209,6 +219,28 @@ builder.Services.AddCors(options =>
         });
 });
 
+// Add SignalR
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
+
+// Add Hangfire
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(c =>
+        c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.ServerName = "BRAVOCARS-BackgroundJobs";
+    options.WorkerCount = Environment.ProcessorCount * 2;
+});
+
 var app = builder.Build();
 
 // Seed database (roles and admin user)
@@ -256,7 +288,14 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Configure Hangfire Dashboard (admin only)
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
+
 app.MapControllers();
+app.MapHub<AuctionHub>("/hubs/auction");
 
     Log.Information("BRAVOCARS API application started successfully");
     app.Run();
