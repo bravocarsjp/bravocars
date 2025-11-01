@@ -183,26 +183,42 @@
     - Email settings: SMTP host, port, credentials, from address
   - Build successful with 0 errors, 0 warnings
 
-#### Step 6: Implement Authentication & Authorization (Priority: HIGH)
-- [ ] Create TokenService implementation
-  - [ ] JwtTokenService - Generate access/refresh tokens
-  - [ ] Token validation and refresh logic
-- [ ] Create AuthService implementation
-  - [ ] User registration with approval workflow
-  - [ ] Login with JWT generation
-  - [ ] Refresh token logic
-- [ ] Create AuthController
-  - [ ] POST /api/auth/register - User registration
-  - [ ] POST /api/auth/login - User login with JWT
-  - [ ] POST /api/auth/refresh-token - Refresh JWT token
-  - [ ] POST /api/auth/logout - Logout user
-  - [ ] GET /api/auth/me - Get current user
-- [ ] Create role-based authorization
-  - [ ] Seed roles: Admin, User, Bidder
-  - [ ] Configure authorization policies
-- [ ] Create AdminController for user approval
+#### Step 6: Implement Authentication & Authorization
+- [x] **Authentication & Authorization - COMPLETE** (2025-11-01)
+  - Created JWT Token Service (JwtTokenService):
+    - Generate access tokens with user claims and roles
+    - Generate refresh tokens (random 64-byte base64)
+    - Token validation with 60-minute expiry
+    - Claims: NameIdentifier, Email, Name, FirstName, LastName, IsApproved, Roles
+  - Created Auth Service (AuthService):
+    - User registration with approval workflow (IsApproved = false)
+    - Email notification on registration
+    - Login with password validation and lockout
+    - JWT token generation on successful login
+    - Logout functionality
+    - Get current user endpoint
+  - Created AuthController with 5 endpoints:
+    - POST /api/auth/register - User registration (pending approval)
+    - POST /api/auth/login - Login with JWT (only approved users)
+    - POST /api/auth/refresh-token - Refresh JWT token
+    - POST /api/auth/logout - Logout user ([Authorize])
+    - GET /api/auth/me - Get current user info ([Authorize])
+  - Configured JWT Authentication:
+    - Added System.IdentityModel.Tokens.Jwt 8.14.0
+    - JWT Bearer authentication configured in Program.cs
+    - Token validation: Issuer, Audience, Lifetime, Signing Key
+    - ClockSkew set to Zero for precise expiration
+  - Updated Configuration:
+    - Added Jwt section to appsettings.json
+    - SecretKey, Issuer, Audience, ExpiryMinutes configured
+    - Registered ITokenService → JwtTokenService (Scoped)
+    - Registered IAuthService → AuthService (Scoped)
+  - Build successful with 6 nullable warnings (non-critical)
+
+- [ ] Create AdminController for user approval (Next step)
   - [ ] POST /api/admin/users/{id}/approve - Approve user
   - [ ] GET /api/admin/users/pending - Get pending approvals
+  - [ ] Seed default roles and admin user
 
 #### Step 7: Implement Core API Controllers (Priority: MEDIUM)
 - [ ] Create CarsController (Admin only)
