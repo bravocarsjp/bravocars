@@ -9,10 +9,14 @@ obj/
 # React / Node
 node_modules/
 dist/
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Docker
+docker-compose.override.yml
 
 # IDE
 .vscode/
