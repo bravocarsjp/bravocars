@@ -1,7 +1,15 @@
+using CarAuction.Application.Interfaces.Repositories;
+using CarAuction.Application.Interfaces.Services;
 using CarAuction.Domain.Entities;
 using CarAuction.Infrastructure.Data;
+using CarAuction.Infrastructure.Repositories;
+using CarAuction.Infrastructure.Services.Cache;
+using CarAuction.Infrastructure.Services.Email;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +40,30 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
+// Add Redis
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var configuration = ConfigurationOptions.Parse(
+        builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379",
+        true);
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
+// Register Repositories
+builder.Services.AddScoped<ICarRepository, CarRepository>();
+builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
+builder.Services.AddScoped<IBidRepository, BidRepository>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Register Services
+builder.Services.AddSingleton<ICacheService, RedisCacheService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+
+// Add FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
+builder.Services.AddValidatorsFromAssemblyContaining<CarAuction.Application.DTOs.Auth.RegisterDto>();
 
 // Add Controllers
 builder.Services.AddControllers();
