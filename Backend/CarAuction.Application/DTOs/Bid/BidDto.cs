@@ -10,5 +10,4 @@ public class BidDto
     public UserDto Bidder { get; set; } = null!;
     public decimal Amount { get; set; }
     public DateTime PlacedAt { get; set; }
-    public bool IsWinningBid { get; set; }
 }

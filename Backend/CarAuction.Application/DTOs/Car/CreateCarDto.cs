@@ -9,7 +9,5 @@ public class CreateCarDto
     public int Mileage { get; set; }
     public string Color { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public decimal StartingPrice { get; set; }
-    public decimal? ReservePrice { get; set; }
-    public List<string> ImageUrls { get; set; } = new();
+    public List<string>? ImageUrls { get; set; }
 }

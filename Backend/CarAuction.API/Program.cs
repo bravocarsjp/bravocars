@@ -6,8 +6,11 @@ using CarAuction.Infrastructure.Data;
 using CarAuction.Infrastructure.Data.Seeders;
 using CarAuction.Infrastructure.Repositories;
 using CarAuction.Infrastructure.Services.Admin;
+using CarAuction.Infrastructure.Services.Auctions;
 using CarAuction.Infrastructure.Services.Auth;
+using CarAuction.Infrastructure.Services.Bids;
 using CarAuction.Infrastructure.Services.Cache;
+using CarAuction.Infrastructure.Services.Cars;
 using CarAuction.Infrastructure.Services.Email;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -68,6 +71,9 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ICarService, CarService>();
+builder.Services.AddScoped<IAuctionService, AuctionService>();
+builder.Services.AddScoped<IBidService, BidService>();
 
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();

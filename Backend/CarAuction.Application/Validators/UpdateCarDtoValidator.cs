@@ -37,12 +37,5 @@ public class UpdateCarDtoValidator : AbstractValidator<UpdateCarDto>
         RuleFor(x => x.Description)
             .MaximumLength(2000).WithMessage("Description cannot exceed 2000 characters")
             .When(x => !string.IsNullOrEmpty(x.Description));
-
-        RuleFor(x => x.StartingPrice)
-            .GreaterThan(0).WithMessage("Starting price must be greater than 0");
-
-        RuleFor(x => x.ReservePrice)
-            .GreaterThan(x => x.StartingPrice).WithMessage("Reserve price must be greater than starting price")
-            .When(x => x.ReservePrice.HasValue);
     }
 }
