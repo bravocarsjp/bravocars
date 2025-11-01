@@ -1,21 +1,63 @@
 import { create } from 'zustand';
+import authService from '../services/authService';
 
 const useAuthStore = create((set) => ({
-  user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: !!localStorage.getItem('token'),
+  user: authService.getStoredUser(),
+  isAuthenticated: authService.isAuthenticated(),
+  loading: false,
+  error: null,
 
-  setAuth: (user, token) => {
-    localStorage.setItem('token', token);
-    set({ user, token, isAuthenticated: true });
+  // Login action
+  login: async (credentials) => {
+    set({ loading: true, error: null });
+    try {
+      const result = await authService.login(credentials);
+      if (result.success) {
+        set({
+          user: result.data.user,
+          isAuthenticated: true,
+          loading: false,
+        });
+        return { success: true };
+      } else {
+        set({ error: result.message, loading: false });
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Login failed';
+      set({ error: errorMessage, loading: false });
+      return { success: false, message: errorMessage };
+    }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    set({ user: null, token: null, isAuthenticated: false });
+  // Register action
+  register: async (userData) => {
+    set({ loading: true, error: null });
+    try {
+      const result = await authService.register(userData);
+      set({ loading: false });
+      return result;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Registration failed';
+      set({ error: errorMessage, loading: false });
+      return { success: false, message: errorMessage };
+    }
   },
 
-  updateUser: (user) => set({ user }),
+  // Logout action
+  logout: async () => {
+    try {
+      await authService.logout();
+    } finally {
+      set({ user: null, isAuthenticated: false });
+    }
+  },
+
+  // Clear error
+  clearError: () => set({ error: null }),
+
+  // Update user
+  setUser: (user) => set({ user, isAuthenticated: true }),
 }));
 
 export default useAuthStore;
