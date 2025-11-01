@@ -225,21 +225,15 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger in all environments for now (restrict to Development later)
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "BRAVOCARS API v1");
-        options.RoutePrefix = "swagger";
-        options.DocumentTitle = "BRAVOCARS API Documentation";
-    });
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "BRAVOCARS API v1");
+    options.RoutePrefix = "swagger";
+    options.DocumentTitle = "BRAVOCARS API Documentation";
+});
 
-// Add global exception handling middleware
-app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
 
 // Add Serilog request logging
@@ -252,6 +246,9 @@ app.UseSerilogRequestLogging(options =>
         diagnosticContext.Set("RemoteIpAddress", httpContext.Connection.RemoteIpAddress);
     };
 });
+
+// Add global exception handling middleware (after logging, before auth)
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
