@@ -3,7 +3,9 @@ using CarAuction.Application.Interfaces.Repositories;
 using CarAuction.Application.Interfaces.Services;
 using CarAuction.Domain.Entities;
 using CarAuction.Infrastructure.Data;
+using CarAuction.Infrastructure.Data.Seeders;
 using CarAuction.Infrastructure.Repositories;
+using CarAuction.Infrastructure.Services.Admin;
 using CarAuction.Infrastructure.Services.Auth;
 using CarAuction.Infrastructure.Services.Cache;
 using CarAuction.Infrastructure.Services.Email;
@@ -65,6 +67,10 @@ builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
+// Register Database Seeder
+builder.Services.AddScoped<DatabaseSeeder>();
 
 // Add JWT Authentication
 var jwtSecretKey = builder.Configuration["Jwt:SecretKey"]
@@ -114,6 +120,22 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Seed database (roles and admin user)
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var seeder = services.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
