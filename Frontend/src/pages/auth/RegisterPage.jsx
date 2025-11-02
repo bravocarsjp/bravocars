@@ -1,61 +1,28 @@
 import { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import {
-  Container,
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Link,
-  Grid,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import useAuthStore from '../../stores/authStore';
-import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import { Form, Input, Button, Card, Typography, Alert, Row, Col, App } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import useAuth from '../../hooks/useAuth';
 
-const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number')
-    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
-  confirmPassword: z.string(),
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+const { Title, Text, Link } = Typography;
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const register = useAuthStore((state) => state.register);
+  const { register, isRegistering } = useAuth();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [form] = Form.useForm();
+  const { message } = App.useApp();
 
-  const {
-    register: registerField,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    resolver: zodResolver(registerSchema),
-  });
-
-  const onSubmit = async (data) => {
+  const onFinish = async (values) => {
     setError('');
-    const { confirmPassword, ...registerData } = data;
-    
-    const result = await register(registerData);
-    
+
+    // Send all fields including confirmPassword to backend
+    const result = await register(values);
+
     if (result.success) {
       setSuccess(true);
-      toast.success('Registration successful! Please wait for admin approval.');
+      message.success('Registration successful! Please wait for admin approval.');
       setTimeout(() => navigate('/login'), 3000);
     } else {
       setError(result.message || 'Registration failed. Please try again.');
@@ -63,121 +30,146 @@ const RegisterPage = () => {
   };
 
   return (
-    <Container component="main" maxWidth="sm">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography component="h1" variant="h5" align="center" gutterBottom>
-            Create Account
-          </Typography>
+    <div style={{ padding: '64px 20px', minHeight: 'calc(100vh - 200px)', background: '#f5f5f5' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <Card style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <Title level={2} style={{ textAlign: 'center', marginBottom: '8px' }}>
+            Create Your Account
+          </Title>
+          <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginBottom: '32px', fontSize: '16px' }}>
+            Join BRAVOCARS to start bidding on premium vehicles
+          </Text>
 
           {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Registration successful! Your account is pending admin approval. You'll be able to login once approved.
-            </Alert>
+            <Alert
+              message="Registration Successful!"
+              description="Your account is pending admin approval. You'll be able to login once approved."
+              type="success"
+              showIcon
+              style={{ marginBottom: '24px' }}
+            />
           )}
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
+            <Alert
+              message={error}
+              type="error"
+              showIcon
+              closable
+              onClose={() => setError('')}
+              style={{ marginBottom: '24px' }}
+            />
           )}
 
-          <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  id="firstName"
-                  label="First Name"
+          <Form
+            form={form}
+            name="register"
+            onFinish={onFinish}
+            layout="vertical"
+            size="large"
+          >
+            <Row gutter={24}>
+              <Col xs={24} md={12}>
+                <Form.Item
                   name="firstName"
-                  autoComplete="given-name"
-                  {...registerField('firstName')}
-                  error={!!errors.firstName}
-                  helperText={errors.firstName?.message}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  id="lastName"
-                  label="Last Name"
+                  label="First Name"
+                  rules={[
+                    { required: true, message: 'Please input your first name!' },
+                    { min: 2, message: 'First name must be at least 2 characters!' }
+                  ]}
+                >
+                  <Input prefix={<UserOutlined />} placeholder="Enter your first name" style={{ height: '48px' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
                   name="lastName"
-                  autoComplete="family-name"
-                  {...registerField('lastName')}
-                  error={!!errors.lastName}
-                  helperText={errors.lastName?.message}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
-                  id="email"
-                  label="Email Address"
-                  name="email"
-                  autoComplete="email"
-                  {...registerField('email')}
-                  error={!!errors.email}
-                  helperText={errors.email?.message}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
+                  label="Last Name"
+                  rules={[
+                    { required: true, message: 'Please input your last name!' },
+                    { min: 2, message: 'Last name must be at least 2 characters!' }
+                  ]}
+                >
+                  <Input prefix={<UserOutlined />} placeholder="Enter your last name" style={{ height: '48px' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item
+              name="email"
+              label="Email Address"
+              rules={[
+                { required: true, message: 'Please input your email!' },
+                { type: 'email', message: 'Please enter a valid email!' }
+              ]}
+            >
+              <Input prefix={<MailOutlined />} placeholder="your.email@example.com" style={{ height: '48px' }} />
+            </Form.Item>
+
+            <Row gutter={24}>
+              <Col xs={24} md={12}>
+                <Form.Item
                   name="password"
                   label="Password"
-                  type="password"
-                  id="password"
-                  autoComplete="new-password"
-                  {...registerField('password')}
-                  error={!!errors.password}
-                  helperText={errors.password?.message}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
+                  rules={[
+                    { required: true, message: 'Please input your password!' },
+                    { min: 8, message: 'Password must be at least 8 characters!' },
+                    {
+                      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+                      message: 'Must include uppercase, lowercase, number and special character!'
+                    }
+                  ]}
+                  hasFeedback
+                >
+                  <Input.Password prefix={<LockOutlined />} placeholder="Create a strong password" style={{ height: '48px' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
                   name="confirmPassword"
                   label="Confirm Password"
-                  type="password"
-                  id="confirmPassword"
-                  {...registerField('confirmPassword')}
-                  error={!!errors.confirmPassword}
-                  helperText={errors.confirmPassword?.message}
-                />
-              </Grid>
-            </Grid>
+                  dependencies={['password']}
+                  hasFeedback
+                  rules={[
+                    { required: true, message: 'Please confirm your password!' },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('password') === value) {
+                          return Promise.resolve();
+                        }
+                        return Promise.reject(new Error('Passwords do not match!'));
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password prefix={<LockOutlined />} placeholder="Re-enter your password" style={{ height: '48px' }} />
+                </Form.Item>
+              </Col>
+            </Row>
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={isSubmitting || success}
-            >
-              {isSubmitting ? <CircularProgress size={24} /> : 'Sign Up'}
-            </Button>
+            <Form.Item style={{ marginTop: '32px' }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                loading={isRegistering}
+                disabled={success}
+                style={{ height: '48px', fontSize: '16px', fontWeight: 600 }}
+              >
+                Create Account
+              </Button>
+            </Form.Item>
 
-            <Box sx={{ textAlign: 'center' }}>
-              <Link component={RouterLink} to="/login" variant="body2">
-                Already have an account? Sign In
-              </Link>
-            </Box>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+            <div style={{ textAlign: 'center', marginTop: '24px' }}>
+              <Text style={{ fontSize: '15px' }}>
+                Already have an account?{' '}
+                <Link href="/login" style={{ fontWeight: 600 }}>Sign In</Link>
+              </Text>
+            </div>
+          </Form>
+        </Card>
+      </div>
+    </div>
   );
 };
 

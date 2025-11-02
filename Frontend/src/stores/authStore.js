@@ -1,63 +1,29 @@
 import { create } from 'zustand';
-import authService from '../services/authService';
 
-const useAuthStore = create((set) => ({
-  user: authService.getStoredUser(),
-  isAuthenticated: authService.isAuthenticated(),
-  loading: false,
-  error: null,
+/**
+ * Simplified auth store that only manages auth state
+ * API calls are now handled by React Query hooks in useAuth
+ */
+const useAuthStore = create((set, get) => ({
+  // Get initial user from localStorage
+  user: (() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  })(),
 
-  // Login action
-  login: async (credentials) => {
-    set({ loading: true, error: null });
-    try {
-      const result = await authService.login(credentials);
-      if (result.success) {
-        set({
-          user: result.data.user,
-          isAuthenticated: true,
-          loading: false,
-        });
-        return { success: true };
-      } else {
-        set({ error: result.message, loading: false });
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
-      set({ error: errorMessage, loading: false });
-      return { success: false, message: errorMessage };
-    }
-  },
+  // Derived state - computed in components
+  // isAuthenticated should be derived from user state in components like: !!user
 
-  // Register action
-  register: async (userData) => {
-    set({ loading: true, error: null });
-    try {
-      const result = await authService.register(userData);
-      set({ loading: false });
-      return result;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration failed';
-      set({ error: errorMessage, loading: false });
-      return { success: false, message: errorMessage };
-    }
-  },
+  // Set user (called after successful login)
+  setUser: (user) => set({ user }),
 
-  // Logout action
-  logout: async () => {
-    try {
-      await authService.logout();
-    } finally {
-      set({ user: null, isAuthenticated: false });
-    }
-  },
+  // Clear user (called after logout)
+  clearUser: () => set({ user: null }),
 
-  // Clear error
-  clearError: () => set({ error: null }),
-
-  // Update user
-  setUser: (user) => set({ user, isAuthenticated: true }),
+  // Update user (for profile updates)
+  updateUser: (updates) => set((state) => ({
+    user: state.user ? { ...state.user, ...updates } : null,
+  })),
 }));
 
 export default useAuthStore;

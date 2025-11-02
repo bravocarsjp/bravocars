@@ -62,8 +62,15 @@ public class AuthService : IAuthService
             // Assign default role
             await _userManager.AddToRoleAsync(user, "User");
 
-            // Send registration email
-            await _emailService.SendRegistrationEmailAsync(user.Email!, user.FirstName);
+            // Send registration email (don't fail registration if email fails)
+            try
+            {
+                await _emailService.SendRegistrationEmailAsync(user.Email!, user.FirstName);
+            }
+            catch (Exception emailEx)
+            {
+                _logger.LogWarning(emailEx, "Failed to send registration email to {Email}. User created successfully but email not sent.", user.Email);
+            }
 
             _logger.LogInformation("User {Email} registered successfully. Pending approval.", user.Email);
 
@@ -226,6 +233,113 @@ public class AuthService : IAuthService
         {
             _logger.LogError(ex, "Error retrieving user {UserId}", userId);
             return ApiResponse<UserDto>.ErrorResponse("An error occurred while retrieving user information");
+        }
+    }
+
+    public async Task<ApiResponse<UserDto>> UpdateProfileAsync(string userId, UpdateProfileDto updateProfileDto)
+    {
+        try
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
+            {
+                return ApiResponse<UserDto>.ErrorResponse("User not found");
+            }
+
+            // Check if email is being changed and if it's already in use
+            if (user.Email != updateProfileDto.Email)
+            {
+                var existingUser = await _userManager.FindByEmailAsync(updateProfileDto.Email);
+                if (existingUser != null)
+                {
+                    return ApiResponse<UserDto>.ErrorResponse("Email is already in use by another account");
+                }
+                user.Email = updateProfileDto.Email;
+                user.UserName = updateProfileDto.Email;
+            }
+
+            // Update user profile fields
+            user.FirstName = updateProfileDto.FirstName;
+            user.LastName = updateProfileDto.LastName;
+            user.PhoneNumber = updateProfileDto.PhoneNumber;
+
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ApiResponse<UserDto>.ErrorResponse("Failed to update profile", errors);
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                PhoneNumber = user.PhoneNumber,
+                IsApproved = user.IsApproved,
+                Roles = roles.ToList()
+            };
+
+            _logger.LogInformation("User {UserId} updated profile successfully", userId);
+
+            return ApiResponse<UserDto>.SuccessResponse(userDto, "Profile updated successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating profile for user {UserId}", userId);
+            return ApiResponse<UserDto>.ErrorResponse("An error occurred while updating profile");
+        }
+    }
+
+    public async Task<ApiResponse<bool>> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto)
+    {
+        try
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
+            {
+                return ApiResponse<bool>.ErrorResponse("User not found");
+            }
+
+            // Validate new password matches confirmation
+            if (changePasswordDto.NewPassword != changePasswordDto.ConfirmPassword)
+            {
+                return ApiResponse<bool>.ErrorResponse("New password and confirmation password do not match");
+            }
+
+            // Verify current password
+            var passwordCheck = await _userManager.CheckPasswordAsync(user, changePasswordDto.CurrentPassword);
+            if (!passwordCheck)
+            {
+                return ApiResponse<bool>.ErrorResponse("Current password is incorrect");
+            }
+
+            // Change password
+            var result = await _userManager.ChangePasswordAsync(
+                user,
+                changePasswordDto.CurrentPassword,
+                changePasswordDto.NewPassword);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ApiResponse<bool>.ErrorResponse("Failed to change password", errors);
+            }
+
+            _logger.LogInformation("User {UserId} changed password successfully", userId);
+
+            return ApiResponse<bool>.SuccessResponse(true, "Password changed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error changing password for user {UserId}", userId);
+            return ApiResponse<bool>.ErrorResponse("An error occurred while changing password");
         }
     }
 }

@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Ensure backend is running before generating API
+if ! lsof -i :5142 > /dev/null 2>&1; then
+  echo "Warning: Backend (port 5142) is not running. Skipping API generation."
+  exit 0
+fi
+
+# Navigate to Frontend directory and regenerate API
+cd "$(git rev-parse --show-toplevel)/Frontend" || exit 1
+
+echo "Regenerating API client from Swagger..."
+npm run generate:api
+
+# Add generated files if they changed
+git add src/api/generated/
+
+echo "API regeneration complete!"

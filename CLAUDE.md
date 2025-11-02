@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🔴 CRITICAL: Configuration & Conventions
+
+**BEFORE MAKING ANY CHANGES, ALWAYS READ: `CONFIGURATION.md`**
+
+The `CONFIGURATION.md` file contains:
+- ✅ Working configurations that MUST NOT be changed
+- ✅ JSON serialization conventions (camelCase)
+- ✅ API routing and CORS settings
+- ✅ Authentication and authorization rules
+- ✅ Testing checklist before committing
+- ✅ Common issues and how to prevent them
+
+**Breaking these conventions will break existing functionality.**
+
 ## ⚠️ IMPORTANT: Project Progress Tracking
 
 **ALWAYS check `TODO.md` first when asked about project status or progress!**
@@ -109,7 +123,79 @@ npm run dev                   # Start development server
 npm run build                 # Build for production
 npm run lint                  # Run ESLint
 npm run preview               # Preview production build
+npm run generate:api          # Generate TypeScript API client from Swagger
 ```
+
+### API Client Generation (OpenAPI/Swagger)
+
+The frontend uses **Orval** to auto-generate type-safe API clients from the backend's Swagger specification. This eliminates manual typing errors and ensures frontend-backend type safety.
+
+**Configuration:**
+- `Frontend/orval.config.ts` - Orval configuration
+- `Frontend/src/api/axios-instance.ts` - Custom axios instance with auth interceptors
+- Source: `http://localhost:5142/swagger/v1/swagger.json`
+- Output: `Frontend/src/api/generated/`
+
+**How it works:**
+1. Backend exposes OpenAPI specification via Swagger
+2. Orval reads the spec and generates TypeScript types and React Query hooks
+3. Pre-commit hook automatically regenerates when backend API changes
+4. All API calls are type-safe and auto-completed
+
+**Generated files:**
+```
+Frontend/src/api/generated/
+├── auth/auth.ts              # Auth endpoints (login, register, logout, etc.)
+├── auctions/auctions.ts      # Auction endpoints
+├── bids/bids.ts              # Bidding endpoints
+├── cars/cars.ts              # Car management endpoints
+├── admin/admin.ts            # Admin endpoints
+└── models/                   # TypeScript type definitions
+    ├── loginDto.ts
+    ├── registerDto.ts
+    └── ...
+```
+
+**Workflow:**
+
+1. **Manual Generation** (when backend API changes):
+   ```bash
+   cd Frontend
+   npm run generate:api
+   ```
+
+2. **Automatic Generation** (on git commit):
+   - Pre-commit hook automatically runs `npm run generate:api`
+   - Generated files are auto-staged if changed
+   - Requires backend to be running on port 5142
+
+3. **Using Generated Hooks** (in React components):
+   ```javascript
+   import { usePostApiAuthLogin } from '../api/generated/auth/auth';
+
+   function LoginForm() {
+     const loginMutation = usePostApiAuthLogin();
+
+     const handleLogin = async (credentials) => {
+       await loginMutation.mutateAsync({ data: credentials });
+     };
+
+     return <form onSubmit={handleLogin}>...</form>;
+   }
+   ```
+
+**Custom Auth Hook:**
+- `Frontend/src/hooks/useAuth.js` - Wraps generated hooks with auth state management
+- Handles token storage, user state, and navigation
+- Use this instead of direct generated hooks for auth operations
+
+**Important Notes:**
+- ⚠️ Backend MUST be running on port 5142 to generate API client
+- ⚠️ Generated files should NOT be manually edited (they're auto-regenerated)
+- ⚠️ Pre-commit hook skips generation if backend is not running
+- ✅ All API types are auto-synced with backend DTOs
+- ✅ React Query provides caching, loading states, and error handling
+- ✅ Axios interceptor handles token refresh automatically
 
 ### Running the Full Stack
 ```bash
@@ -137,6 +223,8 @@ cp .env.example .env
 ## Key Files
 
 - `TODO.md` - **Project progress tracker and task list (CHECK THIS FIRST!)**
+- `STARTUP.md` - **Detailed startup guide and troubleshooting**
+- `start-dev.sh` - **One-command startup script**
 - `docker-compose.yml` - Local development services (PostgreSQL, Redis, pgAdmin)
 - `.env.example` - Environment variables template
 - `.env` - Local environment configuration (not committed)
@@ -150,36 +238,61 @@ cp .env.example .env
 - `Frontend/vite.config.js` - Vite configuration including proxy setup
 - `Frontend/src/App.jsx` - Main React component
 - `Frontend/package.json` - NPM dependencies and scripts
+- `Frontend/orval.config.ts` - Orval configuration for API client generation
+- `Frontend/src/api/axios-instance.ts` - Custom axios instance with auth interceptors
+- `Frontend/src/api/generated/` - Auto-generated API client (DO NOT EDIT)
+- `Frontend/src/hooks/useAuth.js` - Custom auth hook wrapping generated API
+- `.husky/pre-commit` - Git pre-commit hook for auto API regeneration
 - `Prompts/prompt.md` - Full project specification and phase breakdown
 
 ## Development Workflow
 
-1. **First Time Setup:**
-   ```bash
-   # Copy environment file
-   cp .env.example .env
+### Quick Start (Recommended)
+```bash
+# One-command startup (starts Docker, Backend, and Frontend)
+./start-dev.sh
+```
 
-   # Start Docker services
-   docker-compose up -d
+See `STARTUP.md` for detailed startup instructions and troubleshooting.
 
-   # Verify services are running
-   docker-compose ps
+### First Time Setup
+```bash
+# Copy environment file
+cp .env.example .env
 
-   # Install frontend dependencies
-   cd Frontend && npm install
-   ```
+# Start Docker services
+docker-compose up -d
 
-2. **Daily Development:**
-   ```bash
-   # Check Docker services are running
-   docker-compose ps
+# Verify services are running
+docker-compose ps
 
-   # Start backend with hot reload
-   cd Backend && dotnet watch run
+# Install frontend dependencies
+cd Frontend && npm install
+```
 
-   # In another terminal, start frontend
-   cd Frontend && npm run dev
-   ```
+### Daily Development
+
+**Option 1 - Automated (Recommended):**
+```bash
+./start-dev.sh
+```
+
+**Option 2 - Manual:**
+```bash
+# 1. Start Docker services
+docker-compose up -d
+
+# 2. Start backend (Terminal 1)
+cd Backend && dotnet watch run --project CarAuction.API/CarAuction.API.csproj
+
+# 3. Start frontend (Terminal 2)
+cd Frontend && npm run dev
+```
+
+**Important:** Always ensure the backend is running on port 5142 before using the frontend. Check with:
+```bash
+curl http://localhost:5142/swagger/index.html
+```
 
 3. **Database Migrations:**
    ```bash
@@ -190,6 +303,20 @@ cp .env.example .env
 
 ## Troubleshooting
 
+**See `STARTUP.md` for comprehensive troubleshooting guide.**
+
+**Backend Connection Refused (Most Common Issue):**
+```bash
+# Check if backend is running
+lsof -i :5142
+
+# If not running, start it
+cd Backend && dotnet watch run --project CarAuction.API/CarAuction.API.csproj
+
+# Verify it's working
+curl http://localhost:5142/swagger/index.html
+```
+
 **Docker containers won't start:**
 ```bash
 docker-compose down -v  # Remove volumes
@@ -197,12 +324,20 @@ docker-compose up -d    # Recreate
 ```
 
 **Port already in use:**
-- PostgreSQL (5432): Stop local PostgreSQL service
-- Redis (6379): Stop local Redis service
-- Backend (5142): Change port in Backend/Properties/launchSettings.json
-- Frontend (5173): Change port in Frontend/vite.config.js
+```bash
+# Kill process on specific port
+lsof -ti:5142 | xargs kill -9  # Backend
+lsof -ti:5173 | xargs kill -9  # Frontend
+```
 
 **Database connection issues:**
 - Ensure Docker PostgreSQL container is running: `docker-compose ps`
 - Check connection string in .env matches docker-compose.yml settings
-- Test connection: `docker exec -it bravocars-postgres psql -U postgres -d bravocars`
+- Test connection: `docker exec bravocars-postgres psql -U postgres -d bravocars -c "SELECT 1;"`
+
+## Admin Credentials
+
+```
+Email:    admin@bravocars.com
+Password: Admin@123456
+```

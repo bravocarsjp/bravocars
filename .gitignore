@@ -31,3 +31,9 @@ docker-compose.override.yml
 x64/
 x86/
 build/
+
+# Project Management & Documentation (excluded from git)
+TODO.md
+PROGRESS.md
+Prompts/
+CLAUDE.md

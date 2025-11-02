@@ -11,8 +11,8 @@ const authService = {
   login: async (credentials) => {
     const response = await apiClient.post('/Auth/login', credentials);
     if (response.data.success) {
-      const { accessToken, refreshToken, user } = response.data.data;
-      localStorage.setItem('accessToken', accessToken);
+      const { token, refreshToken, user } = response.data.data;
+      localStorage.setItem('accessToken', token);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(user));
     }

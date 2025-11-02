@@ -7,6 +7,7 @@ using CarAuction.Application.Interfaces.Services;
 using CarAuction.Domain.Entities;
 using CarAuction.Infrastructure.Data;
 using CarAuction.Infrastructure.Data.Seeders;
+using CarAuction.Infrastructure.Jobs;
 using CarAuction.Infrastructure.Repositories;
 using CarAuction.Infrastructure.Services.Admin;
 using CarAuction.Infrastructure.Services.Auctions;
@@ -169,6 +170,10 @@ builder.Services.AddScoped<IAuctionHubService>(sp =>
 // Register Database Seeder
 builder.Services.AddScoped<DatabaseSeeder>();
 
+// Register Background Jobs
+builder.Services.AddScoped<AuctionStatusJob>();
+builder.Services.AddScoped<CleanupExpiredTokensJob>();
+
 // Add JWT Authentication
 var jwtSecretKey = builder.Configuration["Jwt:SecretKey"]
     ?? throw new InvalidOperationException("JWT SecretKey is not configured");
@@ -200,8 +205,12 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 builder.Services.AddValidatorsFromAssemblyContaining<CarAuction.Application.DTOs.Auth.RegisterDto>();
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers with camelCase JSON serialization for JavaScript frontend
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -294,8 +303,29 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = new[] { new HangfireAuthorizationFilter() }
 });
 
+// Configure Recurring Jobs
+ConfigureRecurringJobs();
+
 app.MapControllers();
 app.MapHub<AuctionHub>("/hubs/auction");
+
+void ConfigureRecurringJobs()
+{
+    // Auction Status Check - runs every 30 seconds
+    // Starts scheduled auctions, ends expired auctions, broadcasts countdown
+    RecurringJob.AddOrUpdate<AuctionStatusJob>(
+        "auction-status-check",
+        job => job.ExecuteAsync(),
+        "*/30 * * * * *"); // Every 30 seconds
+
+    // Cleanup Expired Tokens - runs every hour
+    RecurringJob.AddOrUpdate<CleanupExpiredTokensJob>(
+        "cleanup-expired-tokens",
+        job => job.ExecuteAsync(),
+        Cron.Hourly);
+
+    Log.Information("Hangfire recurring jobs configured: auction-status-check (every 30s), cleanup-expired-tokens (hourly)");
+}
 
     Log.Information("BRAVOCARS API application started successfully");
     app.Run();

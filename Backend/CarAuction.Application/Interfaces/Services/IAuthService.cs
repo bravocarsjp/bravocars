@@ -10,4 +10,6 @@ public interface IAuthService
     Task<ApiResponse<AuthResponseDto>> RefreshTokenAsync(string refreshToken);
     Task<ApiResponse<bool>> LogoutAsync(string userId);
     Task<ApiResponse<UserDto>> GetCurrentUserAsync(string userId);
+    Task<ApiResponse<UserDto>> UpdateProfileAsync(string userId, UpdateProfileDto updateProfileDto);
+    Task<ApiResponse<bool>> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto);
 }

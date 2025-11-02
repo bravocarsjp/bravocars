@@ -1,16 +1,19 @@
-import { Box } from '@mui/material';
+import { Layout as AntLayout } from 'antd';
 import Header from './Header';
 import Footer from './Footer';
+import './Layout.css';
+
+const { Content } = AntLayout;
 
 const Layout = ({ children }) => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <AntLayout style={{ minHeight: '100vh' }}>
       <Header />
-      <Box component="main" sx={{ flex: 1, py: 3 }}>
+      <Content style={{ flex: 1 }}>
         {children}
-      </Box>
+      </Content>
       <Footer />
-    </Box>
+    </AntLayout>
   );
 };
 

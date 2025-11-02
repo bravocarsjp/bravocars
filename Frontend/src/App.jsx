@@ -1,6 +1,4 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 // Layout
 import Layout from './components/layout/Layout';
@@ -12,9 +10,12 @@ import RegisterPage from './pages/auth/RegisterPage';
 import AuctionListPage from './pages/auctions/AuctionListPage';
 import AuctionDetailPage from './pages/auctions/AuctionDetailPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
 
-// Protected Route
+// Protected Routes
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -36,23 +37,29 @@ function App() {
               </ProtectedRoute>
             }
           />
-          
+
+          {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminRoute>
+                <AdminUsers />
+              </AdminRoute>
+            }
+          />
+
           {/* Redirect unknown routes to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
-      
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
     </Router>
   );
 }

@@ -1,4 +1,5 @@
 using CarAuction.Application.DTOs.Auth;
+using CarAuction.Application.DTOs.Common;
 using CarAuction.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +24,7 @@ public class AuthController : ControllerBase
     /// Register a new user account
     /// </summary>
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register([FromBody] RegisterDto registerDto)
     {
         var result = await _authService.RegisterAsync(registerDto);
 
@@ -110,6 +111,54 @@ public class AuthController : ControllerBase
         if (!result.Success)
         {
             return NotFound(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Update current user's profile information
+    /// </summary>
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateProfileDto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new { message = "User not authenticated" });
+        }
+
+        var result = await _authService.UpdateProfileAsync(userId, updateProfileDto);
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Change current user's password
+    /// </summary>
+    [Authorize]
+    [HttpPut("password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new { message = "User not authenticated" });
+        }
+
+        var result = await _authService.ChangePasswordAsync(userId, changePasswordDto);
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
         }
 
         return Ok(result);

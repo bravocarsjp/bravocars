@@ -1,28 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Grid,
+  Row,
+  Col,
   Card,
-  CardMedia,
-  CardContent,
   Typography,
   Button,
-  Box,
-  Chip,
-  CircularProgress,
+  Tag,
+  Spin,
   Alert,
-  TextField,
-  Paper,
+  Input,
   Divider,
-  ImageList,
-  ImageListItem,
-} from '@mui/material';
-import { DirectionsCar, Speed, LocalGasStation, Settings } from '@mui/icons-material';
+  List,
+  Space,
+  Image,
+  message,
+} from 'antd';
+import { CarOutlined, DashboardOutlined, ThunderboltOutlined, SettingOutlined, WifiOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { format } from 'date-fns';
 import auctionService from '../../services/auctionService';
+import bidService from '../../services/bidService';
+import { signalRService } from '../../services/signalRService';
 import useAuthStore from '../../stores/authStore';
-import { toast } from 'react-toastify';
+import CountdownTimer from '../../components/auction/CountdownTimer';
+
+const { Title, Text, Paragraph } = Typography;
 
 const AuctionDetailPage = () => {
   const { id } = useParams();
@@ -33,10 +35,50 @@ const AuctionDetailPage = () => {
   const [error, setError] = useState('');
   const [bidAmount, setBidAmount] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
+  const [bids, setBids] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [placingBid, setPlacingBid] = useState(false);
+  const [totalBids, setTotalBids] = useState(0);
 
   useEffect(() => {
     loadAuction();
-  }, [id]);
+    loadBids();
+
+    // Connect to SignalR and join auction room
+    const initializeSignalR = async () => {
+      if (isAuthenticated) {
+        const connected = await signalRService.connect();
+        if (connected) {
+          setIsConnected(true);
+          await signalRService.joinAuction(Number(id));
+        }
+      }
+    };
+
+    initializeSignalR();
+
+    // Subscribe to real-time events
+    const unsubscribeBidPlaced = signalRService.on('bidPlaced', handleBidPlaced);
+    const unsubscribeStatusChanged = signalRService.on('auctionStatusChanged', handleStatusChanged);
+    const unsubscribeAuctionEnded = signalRService.on('auctionEnded', handleAuctionEnded);
+    const unsubscribeCountdownUpdate = signalRService.on('countdownUpdate', handleCountdownUpdate);
+    const unsubscribeReconnected = signalRService.on('reconnected', handleReconnected);
+    const unsubscribeConnectionClosed = signalRService.on('connectionClosed', handleConnectionClosed);
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribeBidPlaced();
+      unsubscribeStatusChanged();
+      unsubscribeAuctionEnded();
+      unsubscribeCountdownUpdate();
+      unsubscribeReconnected();
+      unsubscribeConnectionClosed();
+
+      if (isAuthenticated) {
+        signalRService.leaveAuction(Number(id));
+      }
+    };
+  }, [id, isAuthenticated]);
 
   const loadAuction = async () => {
     try {
@@ -55,19 +97,112 @@ const AuctionDetailPage = () => {
     }
   };
 
+  const loadBids = async () => {
+    try {
+      const result = await bidService.getBidsByAuctionId(id);
+      if (result.success) {
+        setBids(result.data || []);
+        setTotalBids(result.data?.length || 0);
+      }
+    } catch (err) {
+      console.error('Error loading bids:', err);
+    }
+  };
+
+  // SignalR event handlers
+  const handleBidPlaced = (bidInfo) => {
+    console.log('New bid received:', bidInfo);
+
+    // Update auction current price
+    setAuction((prev) => ({
+      ...prev,
+      currentPrice: bidInfo.bidAmount,
+    }));
+
+    // Update minimum bid amount
+    setBidAmount(bidInfo.bidAmount + 100);
+
+    // Update total bids count
+    setTotalBids(bidInfo.totalBids || totalBids + 1);
+
+    // Show message notification
+    message.info(`New bid placed: $${bidInfo.bidAmount.toLocaleString()} by ${bidInfo.bidderName}`);
+
+    // Reload bids to show in history
+    loadBids();
+  };
+
+  const handleStatusChanged = (statusInfo) => {
+    console.log('Auction status changed:', statusInfo);
+    setAuction((prev) => ({
+      ...prev,
+      status: statusInfo.status,
+    }));
+    message.info(`Auction status changed to: ${statusInfo.status}`);
+  };
+
+  const handleAuctionEnded = (auctionEndInfo) => {
+    console.log('Auction ended:', auctionEndInfo);
+    setAuction((prev) => ({
+      ...prev,
+      status: 'Completed',
+    }));
+    message.success('This auction has ended!');
+    loadAuction(); // Reload to get final state
+  };
+
+  const handleReconnected = () => {
+    console.log('SignalR reconnected');
+    setIsConnected(true);
+    message.success('Reconnected to live updates');
+    loadAuction(); // Reload data after reconnection
+    loadBids();
+  };
+
+  const handleConnectionClosed = () => {
+    console.log('SignalR connection closed');
+    setIsConnected(false);
+    message.warning('Lost connection to live updates');
+  };
+
+  const handleCountdownUpdate = (countdownInfo) => {
+    console.log('Countdown update received:', countdownInfo);
+    // Countdown is already handled by the CountdownTimer component
+    // We can use this to show additional notifications if needed
+    if (countdownInfo.remainingMinutes === 5) {
+      message.info('Only 5 minutes remaining in this auction!');
+    } else if (countdownInfo.remainingMinutes === 1) {
+      message.warning('Only 1 minute remaining!');
+    }
+  };
+
   const handlePlaceBid = async () => {
     if (!isAuthenticated) {
-      toast.error('Please login to place a bid');
+      message.error('Please login to place a bid');
       navigate('/login');
       return;
     }
 
     if (bidAmount <= auction.currentPrice) {
-      toast.error('Bid amount must be higher than current price');
+      message.error('Bid amount must be higher than current price');
       return;
     }
 
-    toast.info('Bidding functionality coming soon!');
+    try {
+      setPlacingBid(true);
+      const result = await bidService.placeBid(Number(id), bidAmount);
+
+      if (result.success) {
+        message.success('Bid placed successfully!');
+        // The real-time update will handle UI changes via SignalR
+      } else {
+        message.error(result.message || 'Failed to place bid');
+      }
+    } catch (err) {
+      message.error('An error occurred while placing your bid');
+    } finally {
+      setPlacingBid(false);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -95,230 +230,290 @@ const AuctionDetailPage = () => {
 
   if (loading) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Container>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 20px' }}>
+        <Spin size="large" />
+      </div>
     );
   }
 
   if (error || !auction) {
     return (
-      <Container sx={{ mt: 4 }}>
-        <Alert severity="error">{error || 'Auction not found'}</Alert>
-        <Button onClick={() => navigate('/auctions')} sx={{ mt: 2 }}>
+      <div style={{ padding: '64px 20px', maxWidth: '1400px', margin: '0 auto' }}>
+        <Alert message={error || 'Auction not found'} type="error" showIcon style={{ marginBottom: '16px' }} />
+        <Button onClick={() => navigate('/auctions')}>
           Back to Auctions
         </Button>
-      </Container>
+      </div>
     );
   }
 
   const car = auction.car;
 
   return (
-    <Container sx={{ py: 4 }}>
-      <Button onClick={() => navigate('/auctions')} sx={{ mb: 2 }}>
-        Back to Auctions
-      </Button>
+    <div style={{ padding: '32px 20px' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <Button onClick={() => navigate('/auctions')} style={{ marginBottom: '16px' }}>
+          ← Back to Auctions
+        </Button>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={7}>
+        <Row gutter={[24, 24]}>
+        <Col xs={24} md={14}>
           <Card>
-            <CardMedia
-              component="img"
-              height="400"
-              image={car?.imageUrls?.[selectedImage] || '/placeholder-car.jpg'}
+            <Image
+              src={car?.imageUrls?.[selectedImage] || '/placeholder-car.jpg'}
               alt={`${car?.make} ${car?.model}`}
-              sx={{ objectFit: 'cover' }}
+              style={{ width: '100%', height: '400px', objectFit: 'cover' }}
+              preview={true}
             />
             {car?.imageUrls && car.imageUrls.length > 1 && (
-              <ImageList sx={{ height: 100 }} cols={4} rowHeight={100}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', padding: '8px' }}>
                 {car.imageUrls.map((url, index) => (
-                  <ImageListItem
+                  <img
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    sx={{
+                    src={url}
+                    alt={`View ${index + 1}`}
+                    loading="lazy"
+                    style={{
+                      width: '100%',
+                      height: '100px',
+                      objectFit: 'cover',
                       cursor: 'pointer',
                       opacity: selectedImage === index ? 1 : 0.6,
-                      border: selectedImage === index ? '2px solid primary.main' : 'none',
+                      border: selectedImage === index ? '2px solid #1976d2' : 'none',
+                      borderRadius: '4px',
                     }}
-                  >
-                    <img src={url} alt={`View ${index + 1}`} loading="lazy" />
-                  </ImageListItem>
+                  />
                 ))}
-              </ImageList>
+              </div>
             )}
           </Card>
 
-          <Paper sx={{ p: 3, mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
+          <Card style={{ padding: '24px', marginTop: '16px' }}>
+            <Title level={5} style={{ marginBottom: '16px' }}>
               Vehicle Details
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <DirectionsCar sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+            </Title>
+            <Divider style={{ marginBottom: '16px' }} />
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <Space align="start">
+                  <CarOutlined style={{ color: 'rgba(0,0,0,0.45)', marginTop: '4px' }} />
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
                       Make & Model
-                    </Typography>
-                    <Typography variant="body1">
+                    </Text>
+                    <Text>
                       {car?.make} {car?.model}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Speed sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    </Text>
+                  </div>
+                </Space>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Space align="start">
+                  <DashboardOutlined style={{ color: 'rgba(0,0,0,0.45)', marginTop: '4px' }} />
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
                       Mileage
-                    </Typography>
-                    <Typography variant="body1">
+                    </Text>
+                    <Text>
                       {car?.mileage?.toLocaleString()} miles
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Settings sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    </Text>
+                  </div>
+                </Space>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Space align="start">
+                  <SettingOutlined style={{ color: 'rgba(0,0,0,0.45)', marginTop: '4px' }} />
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
                       Transmission
-                    </Typography>
-                    <Typography variant="body1">{car?.transmission}</Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <LocalGasStation sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    </Text>
+                    <Text>{car?.transmission}</Text>
+                  </div>
+                </Space>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Space align="start">
+                  <ThunderboltOutlined style={{ color: 'rgba(0,0,0,0.45)', marginTop: '4px' }} />
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
                       Fuel Type
-                    </Typography>
-                    <Typography variant="body1">{car?.fuelType}</Typography>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
+                    </Text>
+                    <Text>{car?.fuelType}</Text>
+                  </div>
+                </Space>
+              </Col>
+            </Row>
 
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+            <div style={{ marginTop: '24px' }}>
+              <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                 VIN
-              </Typography>
-              <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
+              </Text>
+              <Text style={{ fontFamily: 'monospace' }}>
                 {car?.vin}
-              </Typography>
-            </Box>
+              </Text>
+            </div>
 
             {car?.description && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <div style={{ marginTop: '24px' }}>
+                <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                   Description
-                </Typography>
-                <Typography variant="body1">{car.description}</Typography>
-              </Box>
+                </Text>
+                <Paragraph>{car.description}</Paragraph>
+              </div>
             )}
-          </Paper>
-        </Grid>
+          </Card>
+        </Col>
 
-        <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 3, position: 'sticky', top: 20 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="h5">
+        <Col xs={24} md={10}>
+          <Card style={{ padding: '24px', position: 'sticky', top: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <Title level={4} style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>
                 {car?.year} {car?.make} {car?.model}
-              </Typography>
-              <Chip label={auction.status} color={getStatusColor(auction.status)} />
-            </Box>
+              </Title>
+              <Space wrap>
+                <Tag color={getStatusColor(auction.status)}>{auction.status}</Tag>
+                {isAuthenticated && (
+                  <Tag
+                    icon={isConnected ? <WifiOutlined /> : <DisconnectOutlined />}
+                    color={isConnected ? 'success' : 'default'}
+                  >
+                    {isConnected ? 'Live' : 'Offline'}
+                  </Tag>
+                )}
+              </Space>
+            </div>
 
-            <Divider sx={{ my: 2 }} />
+            <Divider style={{ margin: '16px 0' }} />
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+            <div style={{ marginBottom: '24px' }}>
+              <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                 Current Price
-              </Typography>
-              <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+              </Text>
+              <Title level={3} style={{ color: '#1976d2', fontWeight: 'bold', margin: 0, fontSize: '2rem' }}>
                 {formatPrice(auction.currentPrice)}
-              </Typography>
-            </Box>
+              </Title>
+              {totalBids > 0 && (
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  {totalBids} bid{totalBids !== 1 ? 's' : ''} placed
+                </Text>
+              )}
+            </div>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+            <div style={{ marginBottom: '24px' }}>
+              <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                 Starting Price
-              </Typography>
-              <Typography variant="h6">{formatPrice(auction.startingPrice)}</Typography>
-            </Box>
+              </Text>
+              <Title level={5} style={{ margin: 0 }}>{formatPrice(auction.startingPrice)}</Title>
+            </div>
 
             {auction.reservePrice && (
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" color="text.secondary">
+              <div style={{ marginBottom: '24px' }}>
+                <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                   Reserve Price
-                </Typography>
-                <Typography variant="h6">{formatPrice(auction.reservePrice)}</Typography>
-              </Box>
+                </Text>
+                <Title level={5} style={{ margin: 0 }}>{formatPrice(auction.reservePrice)}</Title>
+              </div>
             )}
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+            <div style={{ marginBottom: '24px' }}>
+              <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                 Start Time
-              </Typography>
-              <Typography variant="body1">
+              </Text>
+              <Text>
                 {format(new Date(auction.startTime), 'PPpp')}
-              </Typography>
-            </Box>
+              </Text>
+            </div>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+            <div style={{ marginBottom: '24px' }}>
+              <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>
                 End Time
-              </Typography>
-              <Typography variant="body1">
+              </Text>
+              <Text>
                 {format(new Date(auction.endTime), 'PPpp')}
-              </Typography>
-            </Box>
+              </Text>
+            </div>
 
             {auction.status === 'Active' && (
               <>
-                <Divider sx={{ my: 2 }} />
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Your Bid Amount"
-                  value={bidAmount}
-                  onChange={(e) => setBidAmount(Number(e.target.value))}
-                  sx={{ mb: 2 }}
-                  helperText={`Minimum bid: ${formatPrice(auction.currentPrice + 100)}`}
+                <Divider style={{ margin: '16px 0' }} />
+                <CountdownTimer
+                  endTime={auction.endTime}
+                  status={auction.status}
                 />
+              </>
+            )}
+
+            {auction.status === 'Active' && (
+              <>
+                <Divider style={{ margin: '16px 0' }} />
+                <div style={{ marginBottom: '16px' }}>
+                  <Input
+                    type="number"
+                    size="large"
+                    placeholder="Your Bid Amount"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(Number(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                  <Text type="secondary" style={{ display: 'block', fontSize: '12px', marginTop: '4px' }}>
+                    Minimum bid: {formatPrice(auction.currentPrice + 100)}
+                  </Text>
+                </div>
                 <Button
-                  fullWidth
-                  variant="contained"
+                  type="primary"
                   size="large"
+                  block
                   onClick={handlePlaceBid}
-                  disabled={!isAuthenticated || bidAmount <= auction.currentPrice}
+                  disabled={!isAuthenticated || bidAmount <= auction.currentPrice || placingBid}
+                  loading={placingBid}
+                  style={{ padding: '12px 0' }}
                 >
-                  Place Bid
+                  {placingBid ? 'Placing Bid...' : 'Place Bid'}
                 </Button>
                 {!isAuthenticated && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+                  <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: '8px', fontSize: '12px' }}>
                     Please login to place a bid
-                  </Typography>
+                  </Text>
                 )}
               </>
             )}
 
             {auction.status === 'Completed' && (
-              <Alert severity="info">This auction has ended</Alert>
+              <Alert message="This auction has ended" type="info" showIcon />
             )}
 
             {auction.status === 'Scheduled' && (
-              <Alert severity="info">This auction has not started yet</Alert>
+              <Alert message="This auction has not started yet" type="info" showIcon />
             )}
-          </Paper>
-        </Grid>
-      </Grid>
-    </Container>
+
+            {bids.length > 0 && (
+              <>
+                <Divider style={{ margin: '24px 0' }} />
+                <Title level={5} style={{ marginBottom: '16px' }}>
+                  Bid History
+                </Title>
+                <div style={{ maxHeight: '300px', overflow: 'auto', background: '#fafafa', padding: '8px', borderRadius: '4px' }}>
+                  <List
+                    size="small"
+                    dataSource={bids.slice(0, 10)}
+                    renderItem={(bid, index) => (
+                      <List.Item key={bid.id || index}>
+                        <List.Item.Meta
+                          title={formatPrice(bid.amount)}
+                          description={`${bid.bidder?.firstName || 'Anonymous'} - ${format(new Date(bid.placedAt), 'PPp')}`}
+                        />
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              </>
+            )}
+          </Card>
+        </Col>
+        </Row>
+      </div>
+    </div>
   );
 };
 
