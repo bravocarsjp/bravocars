@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <EmbedAllSources>false</EmbedAllSources>
+  </PropertyGroup>
+</Project>

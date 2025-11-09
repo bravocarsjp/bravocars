@@ -1,0 +1,261 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>CarAuction.API</name>
+    </assembly>
+    <members>
+        <member name="M:CarAuction.API.Controllers.AdminController.GetPendingUsers">
+            <summary>
+            Get all pending user registrations awaiting approval
+            </summary>
+            <returns>List of pending users</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.GetAllUsers(System.Int32,System.Int32)">
+            <summary>
+            Get all users with pagination
+            </summary>
+            <param name="pageNumber">Page number (default: 1)</param>
+            <param name="pageSize">Page size (default: 20)</param>
+            <returns>Paginated list of users</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.ApproveUser(System.String)">
+            <summary>
+            Approve a pending user registration
+            </summary>
+            <param name="userId">User ID to approve</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.RejectUser(System.String,System.String)">
+            <summary>
+            Reject a pending user registration
+            </summary>
+            <param name="userId">User ID to reject</param>
+            <param name="rejectionReason">Optional reason for rejection</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.AssignRole(System.String,System.String)">
+            <summary>
+            Assign a role to a user
+            </summary>
+            <param name="userId">User ID</param>
+            <param name="roleName">Role name to assign (Admin, User, Bidder)</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.RemoveRole(System.String,System.String)">
+            <summary>
+            Remove a role from a user
+            </summary>
+            <param name="userId">User ID</param>
+            <param name="roleName">Role name to remove</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.GetDashboardStats">
+            <summary>
+            Get comprehensive dashboard statistics including users, auctions, bids, revenue, and top performers
+            </summary>
+            <returns>Dashboard statistics</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.GetAuctionPerformanceReport(System.Nullable{System.DateTime},System.Nullable{System.DateTime})">
+            <summary>
+            Get auction performance report for a specified date range
+            </summary>
+            <param name="startDate">Start date (optional, defaults to 1 month ago)</param>
+            <param name="endDate">End date (optional, defaults to today)</param>
+            <returns>List of auction performance metrics</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.GetUserActivityReport(System.Int32,System.Int32)">
+            <summary>
+            Get user activity report with pagination
+            </summary>
+            <param name="pageNumber">Page number (default: 1)</param>
+            <param name="pageSize">Page size (default: 20)</param>
+            <returns>Paginated user activity report</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AdminController.GetRevenueReport(System.DateTime,System.DateTime)">
+            <summary>
+            Get revenue report for a specified date range
+            </summary>
+            <param name="startDate">Start date</param>
+            <param name="endDate">End date</param>
+            <returns>Daily revenue breakdown</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuctionsController.GetAllAuctions(System.Int32,System.Int32,System.Nullable{CarAuction.Domain.Enums.AuctionStatus})">
+            <summary>
+            Get all auctions with pagination and optional status filter
+            </summary>
+            <param name="pageNumber">Page number (default: 1)</param>
+            <param name="pageSize">Page size (default: 20)</param>
+            <param name="status">Optional status filter (Draft, Scheduled, Active, Completed, Cancelled)</param>
+            <returns>Paginated list of auctions</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuctionsController.GetAuctionById(System.Int32)">
+            <summary>
+            Get an auction by ID
+            </summary>
+            <param name="id">Auction ID</param>
+            <returns>Auction details with car information</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuctionsController.CreateAuction(CarAuction.Application.DTOs.Auction.CreateAuctionDto)">
+            <summary>
+            Create a new auction (Admin only)
+            </summary>
+            <param name="createAuctionDto">Auction creation data</param>
+            <returns>Created auction</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuctionsController.UpdateAuction(System.Int32,CarAuction.Application.DTOs.Auction.UpdateAuctionDto)">
+            <summary>
+            Update an existing auction (Admin only)
+            </summary>
+            <param name="id">Auction ID</param>
+            <param name="updateAuctionDto">Auction update data</param>
+            <returns>Updated auction</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuctionsController.UpdateAuctionStatus(System.Int32,CarAuction.Domain.Enums.AuctionStatus)">
+            <summary>
+            Update auction status (Admin only)
+            </summary>
+            <param name="id">Auction ID</param>
+            <param name="status">New status</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuctionsController.DeleteAuction(System.Int32)">
+            <summary>
+            Delete an auction (Admin only)
+            </summary>
+            <param name="id">Auction ID</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuthController.Register(CarAuction.Application.DTOs.Auth.RegisterDto)">
+            <summary>
+            Register a new user account
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuthController.Login(CarAuction.Application.DTOs.Auth.LoginDto)">
+            <summary>
+            Login with email and password
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuthController.RefreshToken(CarAuction.Application.DTOs.Auth.RefreshTokenDto)">
+            <summary>
+            Refresh access token using refresh token
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuthController.Logout">
+            <summary>
+            Logout current user
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Controllers.AuthController.GetCurrentUser">
+            <summary>
+            Get current authenticated user information
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Controllers.BidsController.GetBidsByAuctionId(System.Int32)">
+            <summary>
+            Get all bids for an auction
+            </summary>
+            <param name="auctionId">Auction ID</param>
+            <returns>List of bids for the auction</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.BidsController.GetHighestBid(System.Int32)">
+            <summary>
+            Get the highest bid for an auction
+            </summary>
+            <param name="auctionId">Auction ID</param>
+            <returns>Highest bid</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.BidsController.PlaceBid(System.Int32,CarAuction.Application.DTOs.Bid.PlaceBidDto)">
+            <summary>
+            Place a bid on an auction
+            </summary>
+            <param name="auctionId">Auction ID</param>
+            <param name="placeBidDto">Bid placement data</param>
+            <returns>Created bid</returns>
+        </member>
+        <member name="T:CarAuction.API.Controllers.MyBidsController">
+            <summary>
+            User bids controller - for getting current user's bids
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Controllers.MyBidsController.GetMyBids">
+            <summary>
+            Get all bids for the current authenticated user
+            </summary>
+            <returns>List of user's bids</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.CarsController.GetAllCars(System.Int32,System.Int32)">
+            <summary>
+            Get all cars with pagination
+            </summary>
+            <param name="pageNumber">Page number (default: 1)</param>
+            <param name="pageSize">Page size (default: 20)</param>
+            <returns>Paginated list of cars</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.CarsController.GetCarById(System.Int32)">
+            <summary>
+            Get a car by ID
+            </summary>
+            <param name="id">Car ID</param>
+            <returns>Car details</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.CarsController.CreateCar(CarAuction.Application.DTOs.Car.CreateCarDto)">
+            <summary>
+            Create a new car
+            </summary>
+            <param name="createCarDto">Car creation data</param>
+            <returns>Created car</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.CarsController.UpdateCar(System.Int32,CarAuction.Application.DTOs.Car.UpdateCarDto)">
+            <summary>
+            Update an existing car
+            </summary>
+            <param name="id">Car ID</param>
+            <param name="updateCarDto">Car update data</param>
+            <returns>Updated car</returns>
+        </member>
+        <member name="M:CarAuction.API.Controllers.CarsController.DeleteCar(System.Int32)">
+            <summary>
+            Delete a car
+            </summary>
+            <param name="id">Car ID</param>
+            <returns>Success or error response</returns>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.JoinAuction(System.Int32)">
+            <summary>
+            Join a specific auction room to receive real-time updates
+            </summary>
+            <param name="auctionId">The ID of the auction to join</param>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.LeaveAuction(System.Int32)">
+            <summary>
+            Leave a specific auction room
+            </summary>
+            <param name="auctionId">The ID of the auction to leave</param>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.GetAuctionGroupName(System.Int32)">
+            <summary>
+            Get the SignalR group name for a specific auction
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.SendBidUpdate(Microsoft.AspNetCore.SignalR.IHubContext{CarAuction.API.Hubs.AuctionHub},System.Int32,System.Object)">
+            <summary>
+            Broadcast a new bid to all users watching the auction
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.SendAuctionStatusUpdate(Microsoft.AspNetCore.SignalR.IHubContext{CarAuction.API.Hubs.AuctionHub},System.Int32,System.Object)">
+            <summary>
+            Broadcast auction status change to all watchers
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.SendCountdownUpdate(Microsoft.AspNetCore.SignalR.IHubContext{CarAuction.API.Hubs.AuctionHub},System.Int32,System.Object)">
+            <summary>
+            Broadcast countdown update to all watchers
+            </summary>
+        </member>
+        <member name="M:CarAuction.API.Hubs.AuctionHub.SendAuctionEnded(Microsoft.AspNetCore.SignalR.IHubContext{CarAuction.API.Hubs.AuctionHub},System.Int32,System.Object)">
+            <summary>
+            Broadcast auction ended event to all watchers
+            </summary>
+        </member>
+    </members>
+</doc>
